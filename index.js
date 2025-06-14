@@ -102,28 +102,26 @@ app.post('/users', async (req, res) => {
   
 
 // Example: Create a new booking
-const { v4: uuidv4 } = require('uuid');  // install with npm install uuid
 app.post('/bookings', async (req, res) => {
-  const { name,  movie_name, 
-  event_name, date, time, seats } = req.body;
-  const id = uuidv4().slice(0, 10);  // Trim UUID to fit 10 chars
+  const { name, movie_name, event_name, date, time, seats } = req.body;
+  const id = uuidv4().slice(0, 10);
 
+  console.log("📦 Incoming booking data:", req.body); // ✅
   try {
     const result = await pool.query(
       `INSERT INTO bookings 
-        (id, name,  movie_name,  event_name, date, time, seats) 
+        (id, name, movie_name, event_name, date, time, seats) 
        VALUES 
         ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
-      [id, name,  movie_name,  event_name, date, time, seats]
+      [id, name, movie_name, event_name, date, time, seats]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error("❌ Booking insert failed:", err); // ✅
     res.status(500).json({ error: 'Failed to create booking' });
   }
 });
-
 
 
 
