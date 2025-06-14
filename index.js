@@ -104,7 +104,8 @@ app.post('/users', async (req, res) => {
 // Example: Create a new booking
 const { v4: uuidv4 } = require('uuid');  // install with npm install uuid
 app.post('/bookings', async (req, res) => {
-  const { name, movieId, movieName, eventid, eventName, date, time, seats } = req.body;
+  const { name,  movieName, 
+  event_name, date, time, seats } = req.body;
   const id = uuidv4().slice(0, 10);  // Trim UUID to fit 10 chars
 
   try {
@@ -114,7 +115,7 @@ app.post('/bookings', async (req, res) => {
        VALUES 
         ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
-      [id, name,  movieName,  eventName, date, time, seats]
+      [id, name,  movieName,  event_name, date, time, seats]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
