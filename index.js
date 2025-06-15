@@ -46,6 +46,24 @@ app.get('/bookings', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
 });
+// Get all bookings
+app.get('/booking', async (req, res) => {
+  const { name } = req.query;
+
+  try {
+    let result;
+    if (name) {
+      result = await pool.query('SELECT * FROM bookings WHERE name = $1', [name]);
+    } else {
+      result = await pool.query('SELECT * FROM bookings');
+    }
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
 
 // Get all events
 app.get('/events', async (req, res) => {
@@ -122,7 +140,27 @@ app.post('/bookings', async (req, res) => {
     res.status(500).json({ error: 'Failed to create booking' });
   }
 });
+// Example: Create a new booking
+app.post('/booking', async (req, res) => {
+  const { name, movie_name, event_name, date, time, seats } = req.body;
+  const id = uuidv4().slice(0, 10);
 
+  console.log("📦 Incoming booking data:", req.body); // ✅
+  try {
+    const result = await pool.query(
+      `INSERT INTO bookings 
+        (id, name, movie_name, event_name, date, time, seats) 
+       VALUES 
+        ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [id, name, movie_name, event_name, date, time, seats]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("❌ Booking insert failed:", err); // ✅
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
 
 
 // Example: Create a new event
