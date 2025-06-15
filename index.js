@@ -27,6 +27,16 @@ app.get('/users', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
+//user
+app.get('/user', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM users');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
 
 // Get all bookings
 app.get('/bookings', async (req, res) => {
@@ -117,8 +127,21 @@ app.post('/users', async (req, res) => {
       res.status(500).json({ error: 'Failed to create user' });
     }
   });
-  
-
+  ///user
+app.post('/user', async (req, res) => {
+    const { name, email, password } = req.body;
+    console.log('Received data:', req.body);  // 👈 add this
+    try {
+      const result = await pool.query(
+        'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *',
+        [name, email, password]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error('Error inserting user:', err); // 👈 see the actual error
+      res.status(500).json({ error: 'Failed to create user' });
+    }
+  });
 // Example: Create a new booking
 app.post('/bookings', async (req, res) => {
   const { name, movie_name, event_name, date, time, seats } = req.body;
