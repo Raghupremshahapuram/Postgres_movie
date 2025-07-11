@@ -28,7 +28,7 @@ app.get('/upcoming-movies', async (req, res) => {
 
 app.get('/events', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM events ORDER BY event_date ASC');
+    const result = await pool.query('SELECT * FROM events ');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
