@@ -88,7 +88,7 @@ app.post('/bookings', async (req, res) => {
   }
 });
 
-// ✅ NEW: Get already booked seats for a movie + date + time
+// ✅ Get already booked seats for a movie + date + time
 app.get('/booked-seats', async (req, res) => {
   const { movie, date, time } = req.query;
 
