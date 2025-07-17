@@ -8,15 +8,18 @@ app.use(cors());
 app.use(express.json());
 
 // --- GET Routes ---
-app.get('/latest-movies', async (req, res) => {
-    try {
-      const result = await pool.query('SELECT * FROM latest_movies');
-      res.json(result.rows);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
 
+// Fetch all latest movies
+app.get('/latest-movies', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM latest_movies');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch all upcoming movies
 app.get('/upcoming-movies', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM upcoming_movies ORDER BY release_date ASC');
@@ -26,16 +29,17 @@ app.get('/upcoming-movies', async (req, res) => {
   }
 });
 
+// Fetch all events
 app.get('/events', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM events ');
+    const result = await pool.query('SELECT * FROM events');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// --- GET & POST Routes ---
+// Fetch all users
 app.get('/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users');
@@ -45,6 +49,7 @@ app.get('/users', async (req, res) => {
   }
 });
 
+// Create a new user
 app.post('/users', async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -58,6 +63,7 @@ app.post('/users', async (req, res) => {
   }
 });
 
+// Fetch all bookings
 app.get('/bookings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM bookings');
@@ -67,21 +73,44 @@ app.get('/bookings', async (req, res) => {
   }
 });
 
+// Create a new booking
 app.post('/bookings', async (req, res) => {
-    const { movie_name, event_name, time, date, seats } = req.body;
-    try {
-      const result = await pool.query(
-        'INSERT INTO bookings (movie_name, event_name, time, date, seats) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [movie_name, event_name, time, date, seats]
-      );
-      res.status(201).json(result.rows[0]);
-    } catch (err) {
-      console.error('❌ Booking failed:', err.message);
-      res.status(400).json({ error: err.message });
-    }
-  });
-    
+  const { movie_name, event_name, time, date, seats } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO bookings (movie_name, event_name, time, date, seats) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [movie_name, event_name, time, date, seats]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('❌ Booking failed:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
 
+// ✅ NEW: Get already booked seats for a movie + date + time
+app.get('/booked-seats', async (req, res) => {
+  const { movie, date, time } = req.query;
+
+  if (!movie || !date || !time) {
+    return res.status(400).json({ error: 'Missing movie, date, or time' });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT seats FROM bookings WHERE movie_name = $1 AND date = $2 AND time = $3',
+      [movie, date, time]
+    );
+
+    const bookedSeats = result.rows.flatMap(row => row.seats);
+    res.json({ bookedSeats });
+  } catch (err) {
+    console.error('❌ Failed to fetch booked seats:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Fetch all cancelled bookings
 app.get('/cancelled-bookings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM cancelled_bookings');
@@ -91,6 +120,7 @@ app.get('/cancelled-bookings', async (req, res) => {
   }
 });
 
+// Cancel a booking
 app.post('/cancelled-bookings', async (req, res) => {
   const { booking_id, reason } = req.body;
   try {
