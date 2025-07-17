@@ -76,17 +76,49 @@ app.get('/bookings', async (req, res) => {
 // Create a new booking
 app.post('/bookings', async (req, res) => {
   const { movie_name, event_name, time, date, seats } = req.body;
+
+  if (!movie_name || !time || !date || !Array.isArray(seats)) {
+    return res.status(400).json({ error: 'Missing or invalid booking data' });
+  }
+
   try {
+    // 1. Fetch already booked seats for same movie, date, time
     const result = await pool.query(
-      'INSERT INTO bookings (movie_name, event_name, time, date, seats) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [movie_name, event_name, time, date, seats]
+      `SELECT seats FROM bookings
+       WHERE movie_name = $1 AND date = $2 AND time = $3 AND status = 'active'`,
+      [movie_name, date, time]
     );
-    res.status(201).json(result.rows[0]);
+
+    // 2. Flatten and normalize booked seat list
+    const alreadyBooked = new Set();
+    for (const row of result.rows) {
+      const seatArray = JSON.parse(row.seats || '[]');
+      seatArray.forEach(seat => alreadyBooked.add(seat));
+    }
+
+    // 3. Check for any conflicts
+    const conflicts = seats.filter(seat => alreadyBooked.has(seat));
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: `❌ These seats are already booked: ${conflicts.join(', ')}`,
+      });
+    }
+
+    // 4. Insert new booking
+    const insert = await pool.query(
+      `INSERT INTO bookings (movie_name, event_name, time, date, seats, status)
+       VALUES ($1, $2, $3, $4, $5, 'active') RETURNING *`,
+      [movie_name, event_name, time, date, JSON.stringify(seats)]
+    );
+
+    res.status(201).json(insert.rows[0]);
+
   } catch (err) {
-    console.error('❌ Booking failed:', err.message);
-    res.status(400).json({ error: err.message });
+    console.error('❌ Booking error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 // ✅ Get already booked seats for a movie + date + time
 app.get('/booked-seats', async (req, res) => {
