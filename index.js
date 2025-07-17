@@ -1,11 +1,105 @@
+require('dotenv').config(); 
+
 const express = require('express');
-const pool = require('./db');
+const { Pool } = require('pg');
+const OpenAI = require('openai');
+const bodyParser = require('body-parser');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ✅ CORS: Allow both local and Netlify frontend
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://fbooking.netlify.app'],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
+app.use(bodyParser.json());
+
+// ✅ PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// ✅ OpenRouter Chatbot Setup
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    // Optional: Remove if OpenRouter doesn't require referer
+    'HTTP-Referer': 'https://fbooking.netlify.app/',
+    'X-Title': 'Local Booking Assistant',
+  },
+});
+
+// ✅ Chatbot Route
+app.post('/chatbot', async (req, res) => {
+  const { messages } = req.body;
+
+  if (!Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Invalid message format' });
+  }
+
+  try {
+    const systemMessage = {
+      role: 'system',
+      content: `
+        You are a helpful movie booking assistant. Ask step-by-step: movie name, date, time, and number of seats.
+        Once all details are collected, respond with:
+        1. A friendly confirmation message.
+        2. Plain JSON (not in a code block) like this:
+        {
+          "movie_name": "Movie Name",
+          "date": "today",
+          "time": "10 PM",
+          "seats": 2
+        }
+        Avoid any markdown or \`\`\`. Output JSON inline.
+      `.trim(),
+    };
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [systemMessage, ...messages],
+      max_tokens: 500,
+    });
+
+    const raw = completion.choices?.[0]?.message?.content?.trim() || '';
+    console.log('🧠 Raw response from OpenAI:\n', raw);
+
+    let reply = raw;
+    let bookingIntent = null;
+
+    const jsonMatch = raw.match(/{[\s\S]*?}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        bookingIntent = {
+          movie_name: parsed.movie_name || parsed.movieName || '',
+          date: (parsed.date || '').toLowerCase(),
+          time: parsed.time || '',
+          seats: Number(parsed.seats) || 0,
+        };
+        reply = raw.replace(jsonMatch[0], '').trim();
+      } catch (e) {
+        console.warn('⚠️ JSON parsing failed:', e.message);
+      }
+    }
+
+    res.json({ reply, bookingIntent });
+  } catch (err) {
+    console.error('❌ Chatbot error:', err.message);
+    res.status(500).json({ error: 'Chatbot service failed' });
+  }
+});
+
+// ✅ Start server (Render sets PORT automatically)
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
 // --- GET Routes ---
 
